@@ -1,15 +1,13 @@
-⚔️ Casca: The Ultimate Linux System Upgrade Automation Script
-Casca is an intelligent, automated, and cross-distribution maintenance script designed to sync, upgrade, and clean your Linux system with a single execution. It handles native distribution updates, checks for universal sandboxed application layers, handles AUR dependencies on Arch, and safely sweeps away dead package weight.
+⚔️ Casca: Linux System Upgrade TUI tool
+Casca is an intelligent, multi-threaded, cross-distribution maintenance tool designed to sync, upgrade, and clean your Linux system through a single execution window. Heavily inspired by the structural aesthetics of btop, Casca replaces standard sequential terminal logs with a responsive, concurrent 4-quadrant curses TUI dashboard that monitors and streams multiple package management pipelines simultaneously.
 
 🚀 Features
 🔍 Smart Architecture Detection: Autodetects Arch Linux, Fedora/Nobara, and Debian/Ubuntu systems on the fly.
 
-📦 Fast Parallel Upgrades: Utilizes hands-off, optimal flags (-y, --noconfirm, --refresh) for the fastest possible mirrors optimization and download speeds.
+⚡ Concurrent Execution Matrix: Runs core system upgrades, AUR updates, Flatpak refreshes, and Snap syncs in parallel threads instead of making you wait for them sequentially.
 
-🚀 AUR Integration: Automatically checks for and fires up yay if you are on an Arch-based distribution.
+📊 Live-Streamed Curses TUI Layout: Features automatic ANSI color striping, live terminal log viewing, auto-scrolling buffers, and dynamic TAB focus shifting between update quadrants.
 
-⚡ Universal Package Maintenance: Detects and triggers updating routines for both Flatpak and Snap environments seamlessly.
+⚔️ Deep Log Fail-Safe Scanning: Implements multi-layered health validation, continuously scanning text outputs for hidden dependency conflicts or network blockages to ensure exact SUCCESS or FAILED status flags.
 
-🧹 Interactive Debris Purging: Offers to safely sweep away orphaned dependencies and dead metadata at the very end of its cycle.
-
-🎨 Clean Visual Output: Provides clear progress trackers and high-visibility status emojis at every stage.
+🧹 Interactive Debris Purging: Offers a "nano-style" hotkey layout at the end of the run to seamlessly purge orphan packages and clean cache directories across your specific distribution.
