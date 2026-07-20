@@ -18,8 +18,8 @@ designed to sync, upgrade, and clean your Linux system through a single executio
 window featuring a responsive, concurrent 4-quadrant curses TUI dashboard.
 
 %prep
-# Extracted folder matching your git archive layout name style
-%autosetup -n casca_script-%{version}-arch
+# FIX: Adjusted folder matching logic to dynamically map to the -noarch archive extraction name style
+%autosetup -n casca_script-%{version}-noarch
 
 %install
 # Create the targeted /usr/bin execution path inside the build root environment
@@ -32,5 +32,5 @@ install -m 0755 casca %{buildroot}%{_bindir}/casca
 %{_bindir}/casca
 
 %changelog
-* Mon Jul 20 2026 Deeptadeep Roy <deeptadeeproy> - 1.0.1-1
-- Bump to version 1.0.2 with privilege escalation for flatpak and snaps and sudo safety logic checks with dynamic UI views.
+* Mon Jul 20 2026 Deeptadeep Roy <deeptadeeproy> - 1.0.2-1
+- Bump to version 1.0.2 with privilege escalation for flatpak and snaps, sudo safety logic checks, and dynamic UI layouts.
