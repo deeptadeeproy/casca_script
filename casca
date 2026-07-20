@@ -23,14 +23,23 @@ ANSI_CLEANER = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 ERROR_KEYWORDS = ["error:", "failed to", "target not found", "conflict", "unable to", "could not"]
 
 # Global dictionary to store log outputs, execution state, and scrolling offsets
+# PENDING state initialized with color pair 5 (Amber/Yellow)
 streams = {
-    "Core Upgrade": {"log": ["Waiting to spin up..."], "status": "PENDING", "color": 4, "scroll_idx": 0, "autoscroll": True},
-    "Snap Refresh": {"log": ["Idle..."], "status": "PENDING", "color": 4, "scroll_idx": 0, "autoscroll": True},
-    "Flatpak Apps": {"log": ["Idle..."], "status": "PENDING", "color": 4, "scroll_idx": 0, "autoscroll": True},
-    "AUR Packages": {"log": ["Idle..."], "status": "PENDING", "color": 4, "scroll_idx": 0, "autoscroll": True}
+    "Core Upgrade": {"log": ["Waiting to spin up..."], "status": "PENDING", "color": 5, "scroll_idx": 0, "autoscroll": True},
+    "Snap Refresh": {"log": ["Idle..."], "status": "PENDING", "color": 5, "scroll_idx": 0, "autoscroll": True},
+    "Flatpak Apps": {"log": ["Idle..."], "status": "PENDING", "color": 5, "scroll_idx": 0, "autoscroll": True},
+    "AUR Packages": {"log": ["Idle..."], "status": "PENDING", "color": 5, "scroll_idx": 0, "autoscroll": True}
 }
 
-quadrant_order = ["Core Upgrade", "Snap Refresh", "Flatpak Apps", "AUR Packages"]
+# Subsystem check results populated before execution pipeline starts
+subsystems = {
+    "snap": False,
+    "flatpak": False,
+    "yay": False
+}
+
+# Dynamic interface layout ordering tracking
+visible_quadrants = []
 focused_idx = 0
 
 lock = threading.Lock()
@@ -43,9 +52,24 @@ def detect_os():
     if os.path.exists("/etc/debian_version"): return "debian"
     return "unknown"
 
-# ==============================================================================
-# Dynamic User Privilege Dropping Engine
-# ==============================================================================
+def check_subsystems():
+    """ Scans the target host path environment for available auxiliary package managers. """
+    global subsystems, visible_quadrants
+    os_type = detect_os()
+    
+    subsystems["snap"] = bool(shutil.which("snap"))
+    subsystems["flatpak"] = bool(shutil.which("flatpak"))
+    subsystems["yay"] = bool(os_type == "arch" and shutil.which("yay"))
+    
+    # Core Upgrade is always visible
+    visible_list = ["Core Upgrade"]
+    if subsystems["snap"]: visible_list.append("Snap Refresh")
+    if subsystems["flatpak"]: visible_list.append("Flatpak Apps")
+    if subsystems["yay"]: visible_list.append("AUR Packages")
+    
+    with lock:
+        visible_quadrants = visible_list
+
 def run_command(command, run_as_user=False):
     """ Wraps execution strings to target the unprivileged calling user context if needed. """
     sudo_user = os.environ.get("SUDO_USER")
@@ -63,7 +87,6 @@ def run_task(name, command):
     failed_by_log = False
 
     try:
-        # Run with standard error redirected to standard output so we catch everything
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
         while True:
@@ -74,7 +97,6 @@ def run_task(name, command):
             clean_line = ANSI_CLEANER.sub('', line).strip()
 
             if clean_line:
-                # Scan the line for explicit error triggers
                 lower_line = clean_line.lower()
                 if any(kw in lower_line for kw in ERROR_KEYWORDS):
                     failed_by_log = True
@@ -91,7 +113,6 @@ def run_task(name, command):
         return_code = proc.wait()
 
         with lock:
-            # Task is only a SUCCESS if the return code is 0 AND no error keywords were flagged
             if return_code == 0 and not failed_by_log:
                 streams[name]["status"] = "SUCCESS"
                 streams[name]["color"] = 3 # Green
@@ -115,34 +136,25 @@ def execution_pipeline():
     elif os_type == "fedora": core_cmd = "dnf upgrade --refresh -y"
     elif os_type == "debian": core_cmd = "apt-get update && apt-get dist-upgrade -y"
 
-    # Core system updates preserve root status
+    # Core updates execute immediately with system privileges
     run_task("Core Upgrade", run_command(core_cmd, run_as_user=False))
 
     threads = []
     
-    # Snap handles updates cleanly globally, but safely drops privileges for localized context
-    if shutil.which("snap"):
-        t = threading.Thread(target=run_task, args=("Snap Refresh", run_command("snap refresh", run_as_user=True)))
+    # Snap runs with native root permissions
+    if subsystems["snap"]:
+        t = threading.Thread(target=run_task, args=("Snap Refresh", run_command("snap refresh", run_as_user=False)))
         threads.append(t)
-    else:
-        streams["Snap Refresh"]["status"] = "SKIPPED"
-        streams["Snap Refresh"]["color"] = 5
 
-    # Flatpak updates user repositories correctly by avoiding systemic permissions corruption
-    if shutil.which("flatpak"):
-        t = threading.Thread(target=run_task, args=("Flatpak Apps", run_command("flatpak update -y", run_as_user=True)))
+    # Flatpak runs system-wide with native root privileges
+    if subsystems["flatpak"]:
+        t = threading.Thread(target=run_task, args=("Flatpak Apps", run_command("flatpak update -y", run_as_user=False)))
         threads.append(t)
-    else:
-        streams["Flatpak Apps"]["status"] = "SKIPPED"
-        streams["Flatpak Apps"]["color"] = 5
 
-    # yay explicitly fails and halts entirely if executed with system root active
-    if os_type == "arch" and shutil.which("yay"):
+    # AUR tools (yay) strictly require dynamic user context mapping to avoid blocking
+    if subsystems["yay"]:
         t = threading.Thread(target=run_task, args=("AUR Packages", run_command("yay -Sua --noconfirm", run_as_user=True)))
         threads.append(t)
-    else:
-        streams["AUR Packages"]["status"] = "SKIPPED"
-        streams["AUR Packages"]["color"] = 5
 
     for t in threads: t.start()
     for t in threads: t.join()
@@ -177,18 +189,6 @@ def draw_box(stdscr, y, x, h, w, title, color_pair, is_focused, has_up, has_down
     stdscr.addstr(y, x + 2, f"{decorator}{title}{closing_dec}", attrs)
     stdscr.attroff(attrs)
 
-def get_next_valid_focus(current_idx, forward=True):
-    step = 1 if forward else -1
-    next_idx = current_idx
-
-    for _ in range(len(quadrant_order)):
-        next_idx = (next_idx + step) % len(quadrant_order)
-        name = quadrant_order[next_idx]
-        if streams[name]["status"] != "SKIPPED":
-            return next_idx
-
-    return current_idx
-
 def main(stdscr):
     global pipeline_finished, trigger_cleanup, focused_idx
     curses.curs_set(0)
@@ -199,7 +199,7 @@ def main(stdscr):
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
-    curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Amber/Yellow Pair
     curses.init_pair(6, curses.COLOR_CYAN, curses.COLOR_BLACK)
 
     threading.Thread(target=execution_pipeline, daemon=True).start()
@@ -217,29 +217,50 @@ def main(stdscr):
 
         stdscr.addstr(0, 2, " casca-system-updater 🗲 Parallel Pipeline System Manager ", curses.A_REVERSE | curses.A_BOLD | curses.color_pair(6))
 
-        box_h = (h - 4) // 2
-        box_w = w // 2
+        with lock:
+            current_quads = list(visible_quadrants)
+        
+        num_quads = len(current_quads)
+        if num_quads == 0:
+            time.sleep(0.05)
+            continue
+            
+        if focused_idx >= num_quads:
+            focused_idx = 0
 
-        quadrants = [
-            ("Core Upgrade", 1, 0),
-            ("Snap Refresh", 1, box_w),
-            ("Flatpak Apps", 1 + box_h, 0),
-            ("AUR Packages", 1 + box_h, box_w)
-        ]
+        current_focus_name = current_quads[focused_idx]
+
+        usable_h = h - 3
+        
+        if num_quads == 1:
+            quad_layouts = [(current_quads[0], 1, 0, usable_h, w - 1)]
+        elif num_quads == 2:
+            box_h = usable_h // 2
+            quad_layouts = [
+                (current_quads[0], 1, 0, box_h, w - 1),
+                (current_quads[1], 1 + box_h, 0, usable_h - box_h, w - 1)
+            ]
+        else:
+            box_h = usable_h // 2
+            box_w = w // 2
+            
+            quad_layouts = []
+            quad_layouts.append((current_quads[0], 1, 0, box_h, box_w - 1))
+            quad_layouts.append((current_quads[1], 1, box_w, box_h, w - box_w - 1))
+            
+            if num_quads == 3:
+                quad_layouts.append((current_quads[2], 1 + box_h, 0, usable_h - box_h, w - 1))
+            else:
+                quad_layouts.append((current_quads[2], 1 + box_h, 0, usable_h - box_h, box_w - 1))
+                quad_layouts.append((current_quads[3], 1 + box_h, box_w, usable_h - box_h, w - box_w - 1))
 
         with lock:
-            if streams[quadrant_order[focused_idx]]["status"] == "SKIPPED":
-                focused_idx = get_next_valid_focus(focused_idx, forward=True)
-
-        current_focus_name = quadrant_order[focused_idx]
-
-        with lock:
-            for name, start_y, start_x in quadrants:
+            for name, start_y, start_x, box_h, box_w in quad_layouts:
                 data = streams[name]
                 is_focused = (name == current_focus_name)
 
                 content_h = box_h - 1
-                content_w = box_w - 4
+                content_w = box_w - 3
                 total_lines = len(data["log"])
 
                 max_view_start = max(0, total_lines - content_h)
@@ -251,13 +272,13 @@ def main(stdscr):
                 end_line = start_line + content_h
                 visible_logs = data["log"][start_line:end_line]
 
-                has_up = start_line > 0 and data["status"] != "SKIPPED"
-                has_down = end_line < total_lines and data["status"] != "SKIPPED"
+                has_up = start_line > 0
+                has_down = end_line < total_lines
 
                 box_color = 6 if is_focused and data["status"] == "RUNNING" else data["color"]
 
-                draw_box(stdscr, start_y, start_x, box_h, box_w - 1,
-                         f"{name} [{data['status']}]" + (" (PAUSED)" if not data["autoscroll"] and data["status"] != "SKIPPED" else ""),
+                draw_box(stdscr, start_y, start_x, box_h, box_w,
+                         f"{name} [{data['status']}]" + (" (PAUSED)" if not data["autoscroll"] else ""),
                          box_color, is_focused, has_up, has_down)
 
                 for idx, log_line in enumerate(visible_logs):
@@ -288,12 +309,14 @@ def main(stdscr):
             ch = stdscr.getch()
             if ch != -1:
                 if ch == 9:
-                    focused_idx = get_next_valid_focus(focused_idx, forward=True)
+                    focused_idx = (focused_idx + 1) % num_quads
                     continue
 
-                f_name = quadrant_order[focused_idx]
+                f_name = current_focus_name
                 f_data = streams[f_name]
-                max_scroll_limit = max(0, len(f_data["log"]) - (box_h - 1))
+                
+                active_box_h = [b_h for n, _, _, b_h, _ in quad_layouts if n == f_name][0]
+                max_scroll_limit = max(0, len(f_data["log"]) - (active_box_h - 1))
 
                 if ch == curses.KEY_UP:
                     f_data["autoscroll"] = False
@@ -304,9 +327,9 @@ def main(stdscr):
                         f_data["autoscroll"] = True
                 elif ch == curses.KEY_PPAGE:
                     f_data["autoscroll"] = False
-                    f_data["scroll_idx"] = max(0, f_data["scroll_idx"] - (box_h - 2))
+                    f_data["scroll_idx"] = max(0, f_data["scroll_idx"] - (active_box_h - 2))
                 elif ch == curses.KEY_NPAGE:
-                    f_data["scroll_idx"] = min(max_scroll_limit, f_data["scroll_idx"] + (box_h - 2))
+                    f_data["scroll_idx"] = min(max_scroll_limit, f_data["scroll_idx"] + (active_box_h - 2))
                     if f_data["scroll_idx"] >= max_scroll_limit:
                         f_data["autoscroll"] = True
 
@@ -322,6 +345,8 @@ def main(stdscr):
             pass
 
 if __name__ == "__main__":
+    check_subsystems()
+    
     try:
         curses.wrapper(main)
     except KeyboardInterrupt:
@@ -331,7 +356,6 @@ if __name__ == "__main__":
     if trigger_cleanup:
         print("\n🧼 Purging orphaned dependencies from the system layout...")
         if os_type == "arch":
-            # Target pacman cleanup retains core privilege context
             os.system("[ -n \"$(pacman -Qtdq)\" ] && pacman -Rns $(pacman -Qtdq) --noconfirm || echo '✨ No orphans found to remove.'")
         elif os_type == "fedora":
             os.system("dnf autoremove -y")
