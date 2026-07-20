@@ -32,4 +32,5 @@ install -m 0755 casca %{buildroot}%{_bindir}/casca
 %{_bindir}/casca
 
 %changelog
+* Mon Jul 20 2026 Deeptadeep Roy <deeptadeeproy> - 1.0.1-1
 - Bump to version 1.0.2 with privilege escalation for flatpak and snaps and sudo safety logic checks with dynamic UI views.
