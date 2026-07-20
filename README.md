@@ -2,6 +2,8 @@
 
 Casca is an intelligent, multi-threaded, cross-distribution maintenance tool designed to sync, upgrade, and clean your Linux system through a single execution window. Heavily inspired by the structural aesthetics of btop, Casca replaces standard sequential terminal logs with a responsive, concurrent 4-quadrant curses TUI dashboard that monitors and streams multiple package management pipelines simultaneously.
 
+[![Screenshot of the application](screenshot.png)](screenshot.png)
+
 🚀 Features
 🔍 Smart Architecture Detection: Autodetects Arch Linux, Fedora/Nobara, and Debian/Ubuntu systems on the fly.
 

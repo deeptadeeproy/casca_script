@@ -6,6 +6,15 @@ import time
 import os
 import shutil
 import re
+import sys
+
+# ==============================================================================
+# CLI Sudo Safety Sanity Intercept Validation
+# ==============================================================================
+if os.geteuid() != 0:
+    print("❌ Error: casca requires administrative root privileges to execute system maintenance pipelines.")
+    print("👉 Please invoke using: sudo casca")
+    sys.exit(1)
 
 # Regex compile target to instantly scrub ANSI escape codes/color sequences
 ANSI_CLEANER = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -33,6 +42,16 @@ def detect_os():
     if os.path.exists("/etc/fedora-release") or os.path.exists("/etc/nobara-release"): return "fedora"
     if os.path.exists("/etc/debian_version"): return "debian"
     return "unknown"
+
+# ==============================================================================
+# Dynamic User Privilege Dropping Engine
+# ==============================================================================
+def run_command(command, run_as_user=False):
+    """ Wraps execution strings to target the unprivileged calling user context if needed. """
+    sudo_user = os.environ.get("SUDO_USER")
+    if run_as_user and sudo_user and sudo_user != "root":
+        return f"sudo -u {sudo_user} {command}"
+    return command
 
 def run_task(name, command):
     global streams
@@ -92,29 +111,34 @@ def execution_pipeline():
     os_type = detect_os()
 
     core_cmd = "echo 'Unsupported OS distribution pipeline.'"
-    if os_type == "arch": core_cmd = "sudo pacman -Syu --noconfirm"
-    elif os_type == "fedora": core_cmd = "sudo dnf upgrade --refresh -y"
-    elif os_type == "debian": core_cmd = "sudo apt-get update && sudo apt-get dist-upgrade -y"
+    if os_type == "arch": core_cmd = "pacman -Syu --noconfirm"
+    elif os_type == "fedora": core_cmd = "dnf upgrade --refresh -y"
+    elif os_type == "debian": core_cmd = "apt-get update && apt-get dist-upgrade -y"
 
-    run_task("Core Upgrade", core_cmd)
+    # Core system updates preserve root status
+    run_task("Core Upgrade", run_command(core_cmd, run_as_user=False))
 
     threads = []
+    
+    # Snap handles updates cleanly globally, but safely drops privileges for localized context
     if shutil.which("snap"):
-        t = threading.Thread(target=run_task, args=("Snap Refresh", "sudo snap refresh"))
+        t = threading.Thread(target=run_task, args=("Snap Refresh", run_command("snap refresh", run_as_user=True)))
         threads.append(t)
     else:
         streams["Snap Refresh"]["status"] = "SKIPPED"
         streams["Snap Refresh"]["color"] = 5
 
+    # Flatpak updates user repositories correctly by avoiding systemic permissions corruption
     if shutil.which("flatpak"):
-        t = threading.Thread(target=run_task, args=("Flatpak Apps", "flatpak update -y"))
+        t = threading.Thread(target=run_task, args=("Flatpak Apps", run_command("flatpak update -y", run_as_user=True)))
         threads.append(t)
     else:
         streams["Flatpak Apps"]["status"] = "SKIPPED"
         streams["Flatpak Apps"]["color"] = 5
 
+    # yay explicitly fails and halts entirely if executed with system root active
     if os_type == "arch" and shutil.which("yay"):
-        t = threading.Thread(target=run_task, args=("AUR Packages", "yay -Sua --noconfirm"))
+        t = threading.Thread(target=run_task, args=("AUR Packages", run_command("yay -Sua --noconfirm", run_as_user=True)))
         threads.append(t)
     else:
         streams["AUR Packages"]["status"] = "SKIPPED"
@@ -307,11 +331,12 @@ if __name__ == "__main__":
     if trigger_cleanup:
         print("\n🧼 Purging orphaned dependencies from the system layout...")
         if os_type == "arch":
-            os.system("[ -n \"$(pacman -Qtdq)\" ] && sudo pacman -Rns $(pacman -Qtdq) --noconfirm || echo '✨ No orphans found to remove.'")
+            # Target pacman cleanup retains core privilege context
+            os.system("[ -n \"$(pacman -Qtdq)\" ] && pacman -Rns $(pacman -Qtdq) --noconfirm || echo '✨ No orphans found to remove.'")
         elif os_type == "fedora":
-            os.system("sudo dnf autoremove -y")
+            os.system("dnf autoremove -y")
         elif os_type == "debian":
-            os.system("sudo apt-get autoremove -y")
+            os.system("apt-get autoremove -y")
         print("✅ Orphan cleanup complete.")
     else:
         print("\n⏭️ Skipping orphan cleanup phase.")
