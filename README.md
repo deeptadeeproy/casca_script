@@ -1,5 +1,3 @@
-You can copy the raw text below directly into your workspace to create the final, formatted `README.md` file.
-
 # casca (v1.0.2)
 
 ![casca Dashboard Screenshot](https://raw.githubusercontent.com/deeptadeeproy/casca_script/release/screenshot.png)
