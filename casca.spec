@@ -5,8 +5,8 @@ Summary:        A btop-style concurrent multi-channel system updater TUI dashboa
 
 License:        MIT
 URL:            https://github.com/deeptadeeproy/casca_script
-# Points to the exact production tarball created by your v1.0.2-arch release tag
-Source0:        https://github.com/deeptadeeproy/casca_script/archive/refs/tags/v%{version}-arch.tar.gz
+# Points to the exact production tarball created by your v1.0.2-noarch release tag
+Source0:        https://github.com/deeptadeeproy/casca_script/archive/refs/tags/v%{version}-noarch.tar.gz
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
