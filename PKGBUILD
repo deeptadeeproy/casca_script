@@ -1,6 +1,6 @@
 # Maintainer: Deeptadeep Roy <deeptadeeproy>
 pkgname=casca
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="A btop-style concurrent multi-channel system updater utilizing a full-screen curses TUI dashboard."
 arch=('any')
