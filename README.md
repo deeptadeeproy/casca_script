@@ -5,7 +5,14 @@
 A `btop`-style concurrent multi-channel system maintenance utility utilizing a full-screen, highly responsive 4-quadrant curses TUI dashboard. `casca` safely parallelizes distinct packaging subsystems, managing root-level upgrades while strictly tracking execution states in real time.
 
 ---
+## 👨🏻‍💻 Usage
 
+Type the following command in the terminal after install and type in admin password
+```bash
+    sudo casca
+```
+
+---
 ## ✨ Features
 
 * **Parallel Execution Engine**: Concurrently handles core system updates, repository syncs, and cache cleanups without serial blocking bottlenecks.
