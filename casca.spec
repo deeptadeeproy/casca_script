@@ -1,5 +1,5 @@
 Name:           casca
-Version:        1.0.2
+Version:        1.0.3
 Release:        1%{?dist}
 Summary:        A btop-style concurrent multi-channel system updater TUI dashboard
 
@@ -32,5 +32,5 @@ install -m 0755 casca %{buildroot}%{_bindir}/casca
 %{_bindir}/casca
 
 %changelog
-* Mon Jul 20 2026 Deeptadeep Roy <deeptadeeproy> - 1.0.2-1
+* Tue Jul 21 2026 Deeptadeep Roy <deeptadeeproy> - 1.0.3-1
 - Bump to version 1.0.2 with privilege escalation for flatpak and snaps, sudo safety logic checks, and dynamic UI layouts.
