@@ -19,8 +19,17 @@ if os.geteuid() != 0:
 # Regex compile target to instantly scrub ANSI escape codes/color sequences
 ANSI_CLEANER = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
-# Failure keywords to scan logs for hidden errors
-ERROR_KEYWORDS = ["error:", "failed to", "target not found", "conflict", "unable to", "could not"]
+# Whitelist patterns for harmless pacman/AUR hook and transaction output
+WHITELIST_PATTERNS = [
+    re.compile(r'Arming ConditionNeedsUpdate', re.IGNORECASE),
+    re.compile(r'Running post-transaction hooks', re.IGNORECASE),
+    re.compile(r'Processing package changes', re.IGNORECASE),
+]
+
+# Strict regex to match actual execution errors without triggering on harmless log strings
+ERROR_REGEX = re.compile(
+    r'(?i)\b(?:error|failed|failure|fatal|critical)\b\s*:'
+)
 
 # Global dictionary to store log outputs, execution state, and scrolling offsets
 # PENDING state initialized with color pair 5 (Amber/Yellow)
@@ -77,6 +86,12 @@ def run_command(command, run_as_user=False):
         return f"sudo -u {sudo_user} {command}"
     return command
 
+def is_log_anomaly(line: str) -> bool:
+    """ Strictly checks if a log line indicates an error while ignoring common false positives. """
+    if any(pat.search(line) for pat in WHITELIST_PATTERNS):
+        return False
+    return bool(ERROR_REGEX.search(line))
+
 def run_task(name, command):
     global streams
     with lock:
@@ -97,8 +112,7 @@ def run_task(name, command):
             clean_line = ANSI_CLEANER.sub('', line).strip()
 
             if clean_line:
-                lower_line = clean_line.lower()
-                if any(kw in lower_line for kw in ERROR_KEYWORDS):
+                if is_log_anomaly(clean_line):
                     failed_by_log = True
 
                 with lock:
