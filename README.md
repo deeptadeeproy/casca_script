@@ -1,89 +1,94 @@
-# casca (v1.0.2)
+# Casca (v1.0.2)
 
-![casca Dashboard Screenshot](https://raw.githubusercontent.com/deeptadeeproy/casca_script/release/screenshot.png)
+![Casca Dashboard Screenshot](https://raw.githubusercontent.com/deeptadeeproy/casca_script/release/screenshot.png)
 
-A `btop`-style concurrent multi-channel system maintenance utility utilizing a full-screen, highly responsive 4-quadrant curses TUI dashboard. `casca` safely parallelizes distinct packaging subsystems, managing root-level upgrades while strictly tracking execution states in real time.
-
----
-## 👨🏻‍💻 Usage
-
-Type the following command in the terminal after install and type in admin password
-```bash
-    sudo casca
-```
-
----
-## ✨ Features
-
-* **Parallel Execution Engine**: Concurrently handles core system updates, repository syncs, and cache cleanups without serial blocking bottlenecks.
-* **Privilege Drop Architecture**: Implements strict sudo-safety checks. Core OS sweeps run as root, while user-space helpers (like Arch's `yay`) drop privileges back to the calling `$SUDO_USER` to prevent repository corruption.
-* **Dynamic 4-Quadrant UI**: A responsive curses interface that automatically probes the host system for supported subsystems and recalculates layout geometry on launch to hide unconfigured modules.
-* **State-Driven TUI Color Mapping**:
-  * 🟡 **Amber**: Pending / In Queue
-  * 🔵 **Cyan**: Active / Running Process
-  * 🟢 **Green**: Successful Run Completion
-  * 🔴 **Red**: Critical Encounter / Process Failed
+Casca is a system maintenance utility. It uses a 4-quadrant curses user interface. The software runs background update tasks at the same time and monitors the system status in real time.
 
 ---
 
-## 🚀 Native Distribution Installation
+## How to Use Casca
 
-`casca` is package-agnostic and built with a neutral `noarch` structure. Choose the native installation workflow matching your target distribution framework.
+1. Open a terminal window.
+2. Type this command:
+   ```bash
+   sudo casca
+   ```
+3. Type your administrator password.
 
-### 🦅 Arch Linux
+---
 
-To compile and register the utility through the AUR `PKGBUILD` mapping:
+## Features
 
-1. Navigate to the local repository directory containing your build configurations.
-2. Synchronize remote hashes and compile the binary locally:
+* **Parallel Execution Engine**: Runs system updates, repository syncs, and cache cleanup tasks at the same time.
+* **Privilege Drop Architecture**: Protects root access. Core operating system tasks run as `root`. User-space helpers (such as `yay` on Arch Linux) run as the `$SUDO_USER` to prevent file corruption.
+* **Dynamic 4-Quadrant User Interface**: Automatically detects available package managers on your host system. Adjusts the interface layout to hide unconfigured modules.
+* **Status Color Guide**:
+  * **Amber**: In Queue
+  * **Cyan**: Active / Running
+  * **Green**: Complete / Success
+  * **Red**: Error / Process Failed
+
+---
+
+## Installation
+
+Casca does not depend on a specific system architecture. Follow the instructions for your Linux distribution.
+
+### Arch Linux
+
+Follow these steps to build and install Casca with `PKGBUILD`:
+
+1. Go to the local directory that contains your build files.
+2. Update the package checksums and build the software:
    ```bash
    updpkgsums
    makepkg -sri
-3. Generate the absolute tracking payload manifest prior to committing changes upstream:
-    ```bash
-    makepkg --printsrcinfo > .SRCINFO
-    ```
+   ```
+3. Update the package information file:
+   ```bash
+   makepkg --printsrcinfo > .SRCINFO
+   ```
 
-### 🎩 Fedora (`.rpm`)
+### Fedora (`.rpm`)
 
-To install the native, architecture-independent RPM binary file:
+Follow these steps to install the RPM package:
 
 1. Download the release package: [casca-1.0.2-1.fc44.noarch.rpm](https://github.com/deeptadeeproy/casca_script/releases/download/v1.0.2-noarch/casca-1.0.2-1.fc44.noarch.rpm)
-2. Install via `dnf` to guarantee modern system dependency handling:
-    ```bash
-    sudo dnf install ./casca-1.0.2-1.fc44.noarch.rpm
-    ```
+2. Install the package with `dnf`:
+   ```bash
+   sudo dnf install ./casca-1.0.2-1.fc44.noarch.rpm
+   ```
 
+*Note: To remove build dependencies that you do not need, run this command:*
 
+```bash
+sudo dnf remove python3-devel --autoremove
+```
 
-    *Note: If you need to purge the development requirements used during compilation, safely sweep them by running:*
+### Ubuntu / Debian (`.deb`)
 
-    ```bash
-    sudo dnf remove python3-devel --autoremove
-    ```
-
-### 📦 Ubuntu / Debian (`.deb`)
-
-To install via the native Debian binary package architecture:
+Follow these steps to install the Debian package:
 
 1. Download the release package: [casca_1.0.2_all.deb](https://github.com/deeptadeeproy/casca_script/releases/download/v1.0.2-noarch/casca_1.0.2_all.deb)
-2. Deploy the tool using `apt` to ensure clean upstream repository dependency resolution:
-    ```bash
-    sudo apt install ./casca_1.0.2_all.deb
-    ```
+2. Install the package with `apt`:
+   ```bash
+   sudo apt install ./casca_1.0.2_all.deb
+   ```
 
-
-
-*⚠️ Avoid using raw `dpkg -i`, as low-level dpkg calls cannot query external repositories to automatically download missing core requirements like `python3`.*
+> **Warning:** Do not use `dpkg -i`. The `dpkg` tool cannot automatically install required dependencies such as `python3`.
 
 ---
 
-## 🛠️ Architecture Notes
+## System Architecture
 
-### Sudo Safety & Snap/Flatpak Interactivity
+### Safe Sudo and Container Updates
 
-`casca` is structured around non-interactive, fail-fast operations to ensure it doesn't hang indefinitely behind hidden prompts in a background frame thread. When updating sandboxed layers like Flatpak or Snap, the tool automatically routes execution hooks correctly through root validation channels while keeping tracking locks completely contained inside the concurrent UI loop.
+Casca uses non-interactive commands. It stops immediately if an error occurs. This prevents the program from waiting for user input in the background.
 
-## 📄 License
+When Casca updates Flatpak or Snap packages, it routes commands through the root user correctly and keeps track of the system state inside the user interface.
 
-This project is open-source software licensed under the **MIT License**. See the `LICENSE` file for full compliance details.
+---
+
+## License
+
+This software is open source under the **MIT License**. Read the `LICENSE` file for more information.
